@@ -11,14 +11,14 @@ if api_key:
 
 def call_gemini_flash(system_instruction: str, prompt: str, json_mode: bool = False) -> str:
     """
-    Call the Gemini 2.5 Flash model with system instructions.
+    Call the Gemini 3.5 Flash model with system instructions.
     Forces JSON response if json_mode is True.
     """
     if not api_key:
         raise ValueError("GEMINI_API_KEY is not defined in the environment variables.")
 
     model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
+        model_name="gemini-3.5-flash",
         system_instruction=system_instruction
     )
     
