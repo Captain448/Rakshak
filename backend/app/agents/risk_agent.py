@@ -1,33 +1,103 @@
-import json
-from app.services.gemini_service import call_gemini_flash
+import logging
 
-SYSTEM_INSTRUCTION = """
-You are the Citizen Risk Agent for Rakshak AI.
-Your task is to analyze suspicious messages for social engineering patterns, coercive language, pressure tactics, and phishing structures.
-Determine a risk level, assign a confidence score (0-100), classify the scam category, and provide detailed reasons and safety recommendations.
-You must return a raw JSON object with the following structure:
-{
-  "risk_level": "LOW | MEDIUM | HIGH | CRITICAL",
-  "score": 85,
-  "category": "Fake KYC Scam | Digital Arrest | UPI Fraud | Lottery Fraud | Police Impersonation | General Phishing",
-  "reasons": ["list of threat indicators detected in the text"],
-  "recommendations": ["list of clear, actionable safety instructions for the citizen"]
+logger = logging.getLogger("RiskAgent")
+
+VALID_LEVELS = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+VALID_CATEGORIES = {
+    "Digital Arrest Scam",
+    "Fake KYC Scam",
+    "OTP Scam",
+    "Lottery Scam",
+    "UPI Fraud",
+    "Safe Message"
 }
-Do not include any explanation, markdown formatting (like ```json), or header. Return only the raw JSON.
-"""
 
-def run_risk_agent(text: str) -> dict:
-    prompt = f"Analyze threat characteristics for this message:\n\n{text}"
-    response_text = call_gemini_flash(SYSTEM_INSTRUCTION, prompt)
-    
+def validate_risk_metrics(data: dict) -> dict:
+    """
+    Validates, standardizes, and corrects threat analysis outputs.
+    Ensures strict type compliance, risk level mapping, and score clamping.
+    """
+    # 1. Parse and clamp score
+    score = data.get("score", 0)
     try:
-        cleaned = response_text.replace("```json", "").replace("```", "").strip()
-        return json.loads(cleaned)
-    except Exception:
-        return {
-            "risk_level": "LOW",
-            "score": 10,
-            "category": "General Inquiry",
-            "reasons": ["Automatic fallback activated - unable to parse AI response"],
-            "recommendations": ["Exercise standard safety practices when dealing with unknown senders"]
-        }
+        score = int(score)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid score data: {score}. Setting fallback 0.")
+        score = 0
+    score = max(0, min(100, score))
+
+    # 2. Normalize category
+    category = data.get("category", "Safe Message")
+    if category not in VALID_CATEGORIES:
+        logger.warning(f"Normalizing category from: {category}")
+        cat_lower = str(category).lower()
+        if "arrest" in cat_lower or "police" in cat_lower or "cbi" in cat_lower:
+            category = "Digital Arrest Scam"
+        elif "kyc" in cat_lower or "sim" in cat_lower or "block" in cat_lower:
+            category = "Fake KYC Scam"
+        elif "otp" in cat_lower or "password" in cat_lower:
+            category = "OTP Scam"
+        elif "lottery" in cat_lower or "prize" in cat_lower or "win" in cat_lower:
+            category = "Lottery Scam"
+        elif "upi" in cat_lower or "pay" in cat_lower or "collect" in cat_lower:
+            category = "UPI Fraud"
+        else:
+            category = "Safe Message"
+
+    # 3. Standardize risk_level and cross-check with score consistency
+    risk_level = str(data.get("risk_level", "")).upper().strip()
+    if risk_level not in VALID_LEVELS:
+        logger.warning(f"Standardizing risk_level from score.")
+        if score <= 25:
+            risk_level = "LOW"
+        elif score <= 60:
+            risk_level = "MEDIUM"
+        elif score <= 85:
+            risk_level = "HIGH"
+        else:
+            risk_level = "CRITICAL"
+
+    # Enforce coherence between risk_level and score ranges
+    if category == "Safe Message":
+        risk_level = "LOW"
+        score = min(25, score)
+    elif risk_level == "CRITICAL" and score <= 85:
+        score = 88
+    elif risk_level == "HIGH" and (score <= 60 or score > 85):
+        score = 75
+    elif risk_level == "MEDIUM" and (score <= 25 or score > 60):
+        score = 45
+    elif risk_level == "LOW" and score > 25:
+        score = 15
+
+    # 4. Standardize reasons list
+    reasons = data.get("reasons", [])
+    if not isinstance(reasons, list):
+        reasons = [str(reasons)] if reasons else []
+    reasons = [str(r) for r in reasons]
+    if not reasons:
+        reasons = (
+            ["Suspect patterns matching fraudulent tactics detected"] 
+            if category != "Safe Message" 
+            else ["No active threat markers detected"]
+        )
+
+    # 5. Standardize recommendations list
+    recommendations = data.get("recommendations", [])
+    if not isinstance(recommendations, list):
+        recommendations = [str(recommendations)] if recommendations else []
+    recommendations = [str(rec) for rec in recommendations]
+    if not recommendations:
+        recommendations = (
+            ["Cut call communication. Do not pay fees or share verification codes."] 
+            if category != "Safe Message" 
+            else ["Standard cyber vigilance is advised."]
+        )
+
+    return {
+        "risk_level": risk_level,
+        "score": score,
+        "category": category,
+        "reasons": reasons,
+        "recommendations": recommendations
+    }
