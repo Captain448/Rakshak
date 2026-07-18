@@ -29,7 +29,8 @@ Return a JSON object with this exact structure:
   "reasons": ["list of threat indicators or language features detected in the text"],
   "recommendations": ["list of immediate, actionable safety steps for the citizen"]
 }
-Only output the JSON string. Do not include markdown block wrappers or explanations.
+Ensure all internal double quotes inside the JSON string values are properly escaped using backslashes (e.g., \\") or replaced with single quotes. Do not include trailing commas. Only output the JSON string. Do not include markdown block wrappers or explanations.
+
 """
 
 def run_threat_agent(text: str) -> dict:
