@@ -1,4 +1,5 @@
 import threading
+from datetime import datetime
 from typing import List, Optional
 from app.models.alert import AlertModel
 
@@ -19,6 +20,13 @@ _alerts: List[AlertModel] = [
             "Do not transfer money.",
             "Disconnect the call immediately.",
             "Report to the cybercrime helpline (call 1930)."
+        ],
+        status="ACTIVE",
+        updated_at="19-07-2026 10:45 AM",
+        status_changed_by="System",
+        history=[
+            {"event": "Alert created", "time": "19-07-2026 10:45 AM"},
+            {"event": "Incident count increased (Total: 14)", "time": "19-07-2026 11:30 AM"}
         ]
     ),
     AlertModel(
@@ -36,6 +44,13 @@ _alerts: List[AlertModel] = [
             "Ignore suspicious KYC update links.",
             "Visit the official bank website directly.",
             "Report phishing attempts to the bank's security cell."
+        ],
+        status="ACTIVE",
+        updated_at="19-07-2026 09:15 AM",
+        status_changed_by="System",
+        history=[
+            {"event": "Alert created", "time": "19-07-2026 09:15 AM"},
+            {"event": "Incident count increased (Total: 32)", "time": "19-07-2026 10:00 AM"}
         ]
     ),
     AlertModel(
@@ -53,6 +68,13 @@ _alerts: List[AlertModel] = [
             "Never share OTPs with anyone.",
             "Block the suspect sender number.",
             "Contact your utility provider's official customer care."
+        ],
+        status="ACTIVE",
+        updated_at="18-07-2026 04:30 PM",
+        status_changed_by="System",
+        history=[
+            {"event": "Alert created", "time": "18-07-2026 04:30 PM"},
+            {"event": "Incident count increased (Total: 18)", "time": "18-07-2026 05:00 PM"}
         ]
     ),
     AlertModel(
@@ -70,6 +92,13 @@ _alerts: List[AlertModel] = [
             "Verify payment requests before proceeding.",
             "Do not scan unknown QR codes.",
             "Freeze transactions and report to your bank if scammed."
+        ],
+        status="ACTIVE",
+        updated_at="17-07-2026 11:20 AM",
+        status_changed_by="System",
+        history=[
+            {"event": "Alert created", "time": "17-07-2026 11:20 AM"},
+            {"event": "Incident count increased (Total: 25)", "time": "17-07-2026 12:00 PM"}
         ]
     )
 ]
@@ -97,4 +126,11 @@ def increment_incident_count_in_store(alert_id: str) -> None:
         for alert in _alerts:
             if alert.id == alert_id:
                 alert.incident_count += 1
+                current_time_str = datetime.now().strftime("%d-%m-%Y %I:%M %p")
+                alert.updated_at = current_time_str
+                alert.status_changed_by = "System"
+                alert.history.append({
+                    "event": f"Incident count increased (Total: {alert.incident_count})",
+                    "time": current_time_str
+                })
                 break

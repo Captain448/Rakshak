@@ -13,3 +13,7 @@ class AlertModel(BaseModel):
     source_message: str
     incident_count: int
     recommended_action: List[str]
+    status: str = "ACTIVE"
+    updated_at: str
+    status_changed_by: str = "System"
+    history: List[dict] = []

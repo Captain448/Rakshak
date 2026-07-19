@@ -216,6 +216,33 @@ export default function CounterfeitAnalysis() {
           )}
         </div>
       </div>
+
+      {/* Phase 5 Roadmap Section */}
+      <div className="bg-navy-900 text-white border border-saffron-500 rounded-lg p-5 flex flex-col gap-3 shadow-md mt-6">
+        <div className="flex items-center gap-2 border-b border-white/20 pb-2">
+          <Landmark className="h-5 w-5 text-saffron-500" />
+          <h3 className="font-extrabold text-xs uppercase tracking-wider text-saffron-500">
+            Roadmap Preview: Phase 5 Counterfeit Intelligence
+          </h3>
+        </div>
+        <p className="text-xs leading-relaxed text-white/90">
+          The next release cycle will enable automated visual authenticity scoring using OCR layout templates and Gemini multimodal verification.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[10px] font-semibold text-white/80 mt-1">
+          <div className="border border-white/10 rounded p-2.5 bg-white/5">
+            <span className="text-saffron-500 font-bold block mb-1">IMAGE UPLOAD & OCR</span>
+            Extract text and serial configurations.
+          </div>
+          <div className="border border-white/10 rounded p-2.5 bg-white/5">
+            <span className="text-saffron-500 font-bold block mb-1">RBI TEMPLATE AUDITING</span>
+            Compare Mahatma Gandhi portraits.
+          </div>
+          <div className="border border-white/10 rounded p-2.5 bg-white/5">
+            <span className="text-saffron-500 font-bold block mb-1">AUTHORITY ESCALATION</span>
+            Alert local cells upon counterfeit match.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

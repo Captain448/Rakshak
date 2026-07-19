@@ -1,56 +1,125 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Info, Network, Link2, UserMinus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Network, Info, ArrowRight, Shield } from "lucide-react";
+import RiskBadge from "@/components/ui/RiskBadge";
 
-interface NodeConnection {
-  type: string;
-  label: string;
-  risk: string;
+interface AlertData {
+  id: string;
+  title: string;
+  category: string;
+  risk_level: string;
+  timestamp: string;
+  location?: string | null;
+  summary: string;
+  advisory: string;
+  source_message: string;
+  incident_count: number;
+  recommended_action: string[];
   status: string;
+  updated_at: string;
+  status_changed_by: string;
+  history: { event: string; time: string }[];
 }
 
-interface GraphNode {
+interface ReportData {
   id: string;
-  label: string;
-  value: string;
-  risk: string;
-  connections: NodeConnection[];
+  text: string;
+  timestamp: string;
+  category: string;
+  risk_level: string;
+  alert_id?: string | null;
 }
 
 export default function FraudGraphExplorer() {
-  const [searchVal, setSearchVal] = useState("");
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [alerts, setAlerts] = useState<AlertData[]>([]);
+  const [selectedAlert, setSelectedAlert] = useState<AlertData | null>(null);
+  const [linkedReports, setLinkedReports] = useState<ReportData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Search trigger simulation
-  const handleGraphSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchVal.includes("99988") || searchVal.includes("cbi")) {
-      setSelectedNode({
-        id: "s1",
-        label: "Suspect Phone",
-        value: "+91 99988 87776",
-        risk: "CRITICAL",
-        connections: [
-          { type: "Associated UPI", label: "cbi-verification@oksbi", risk: "CRITICAL", status: "Active Mule" },
-          { type: "Money Sent From", label: "Rajesh Kumar (Victim)", risk: "LOW", status: "Verified Account" },
-          { type: "Mule Bank Destination", label: "SBI Account ...12049", risk: "HIGH", status: "Flagged Account" },
-          { type: "IP Logs registered", label: "192.168.1.14 (Gurgaon)", risk: "MEDIUM", status: "Active Session" }
-        ]
-      });
-    } else {
-      setSelectedNode({
-        id: "s2",
-        label: "UPI Handle",
-        value: "verify-pan@okicici",
-        risk: "HIGH",
-        connections: [
-          { type: "Associated Phone", label: "+91 91234 56789", risk: "HIGH", status: "Suspect Line" },
-          { type: "Linked Account", label: "ICICI ...9420", risk: "HIGH", status: "Flagged Account" }
-        ]
-      });
-    }
-  };
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+        const res = await fetch(`${API_URL}/api/v1/authority/alerts`);
+        if (!res.ok) throw new Error("Failed to load alerts");
+        const alertsData = await res.json();
+        setAlerts(alertsData);
+        if (alertsData.length > 0) {
+          setSelectedAlert(alertsData[0]);
+        }
+      } catch {
+        // Mock fallback if offline
+        const mockAlerts = [
+          {
+            id: "alt-001",
+            title: "Critical Surge in CBI Mumbai Impersonation Campaign",
+            category: "Digital Arrest Scam",
+            risk_level: "CRITICAL",
+            timestamp: "19-07-2026 10:45 AM",
+            location: "New Delhi, Delhi",
+            summary: "Scammers claiming to be CBI or Mumbai Police officers.",
+            advisory: "Block such numbers instantly.",
+            source_message: "WhatsApp video call from CBI.",
+            incident_count: 14,
+            recommended_action: [],
+            status: "ACTIVE",
+            updated_at: "19-07-2026 10:45 AM",
+            status_changed_by: "System",
+            history: []
+          },
+          {
+            id: "alt-002",
+            title: "Urgent: SBI KYC Verification Phishing Spike",
+            category: "Fake KYC Scam",
+            risk_level: "HIGH",
+            timestamp: "19-07-2026 09:15 AM",
+            location: "Jamtara, Jharkhand",
+            summary: "SMS campaign wave sending links claiming SBI accounts block.",
+            advisory: "Banks never request credentials via SMS links.",
+            source_message: "SBI block alert message.",
+            incident_count: 32,
+            recommended_action: [],
+            status: "ACTIVE",
+            updated_at: "19-07-2026 09:15 AM",
+            status_changed_by: "System",
+            history: []
+          }
+        ];
+        setAlerts(mockAlerts);
+        setSelectedAlert(mockAlerts[0]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAlerts();
+  }, []);
+
+  useEffect(() => {
+    const fetchLinkedReports = async () => {
+      if (!selectedAlert) return;
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+        const res = await fetch(`${API_URL}/api/v1/authority/alerts/${selectedAlert.id}`);
+        if (!res.ok) throw new Error("Failed to load details");
+        const data = await res.json();
+        setLinkedReports(data.reports || []);
+      } catch {
+        // Fallback mock report links matching category
+        if (selectedAlert.id === "alt-001") {
+          setLinkedReports([
+            { id: "rep-001", text: "Got WhatsApp call claiming I was under digital arrest.", timestamp: "19-07-2026", category: "Digital Arrest Scam", risk_level: "CRITICAL", alert_id: "alt-001" },
+            { id: "rep-002", text: "Fake police served CBI arrest notice PDF online.", timestamp: "19-07-2026", category: "Digital Arrest Scam", risk_level: "HIGH", alert_id: "alt-001" }
+          ]);
+        } else {
+          setLinkedReports([
+            { id: "rep-003", text: "SBI KYC update link received via SMS.", timestamp: "19-07-2026", category: "Fake KYC Scam", risk_level: "HIGH", alert_id: "alt-002" }
+          ]);
+        }
+      }
+    };
+    fetchLinkedReports();
+  }, [selectedAlert]);
 
   return (
     <div className="flex flex-col gap-6 py-2">
@@ -58,178 +127,164 @@ export default function FraudGraphExplorer() {
       <div className="border-b border-govgray-200 pb-4">
         <h1 className="text-2xl font-extrabold text-navy-900 flex items-center gap-2">
           <Network className="h-7 w-7 text-saffron-500" />
-          Fraud Relationship Graph Explorer (Neo4j Registry)
+          Fraud Relationship Graph Explorer
         </h1>
         <p className="text-xs text-govgray-600 mt-1">
-          Perform entity-relationship pathfinding checks across phone numbers, money mule accounts, UPI handles, and device prints.
+          Trace structural connections between scam campaigns, warning alerts, citizen reports, and calculated risk level nodes.
         </p>
       </div>
 
-      {/* Query Search */}
-      <form onSubmit={handleGraphSearch} className="bg-govgray-50 border border-govgray-200 rounded p-4 flex gap-3 max-w-xl">
-        <input
-          type="text"
-          value={searchVal}
-          onChange={(e) => setSearchVal(e.target.value)}
-          placeholder="Enter Suspect Indicator (Phone, UPI handle, or account)..."
-          className="flex-1 bg-white border border-govgray-300 rounded p-2 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 h-9.5"
-        />
-        <button
-          type="submit"
-          className="bg-navy-900 text-white font-bold text-xs px-5 h-9.5 rounded hover:bg-navy-800 transition-colors flex items-center gap-1.5"
-        >
-          <Search className="h-4 w-4" />
-          Run Neo4j Query
-        </button>
-      </form>
-
-      {/* Main split dashboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
         
-        {/* Node graph drawing placeholder */}
-        <div className="lg:col-span-2 bg-white border border-govgray-200 rounded p-5 flex flex-col gap-4 shadow-sm">
-          <div className="flex justify-between items-center border-b border-govgray-200 pb-3">
-            <h3 className="font-extrabold text-xs text-navy-900 uppercase tracking-wide">
-              Active Entity Cluster Graph
-            </h3>
-            <span className="text-[10px] text-govgray-600 font-semibold">Graph Database: Connected Nodes</span>
-          </div>
-
-          {/* Graph visual emulator: White canvas with clean navy circles */}
-          <div className="bg-govgray-50 border border-govgray-200 rounded-lg h-96 relative flex items-center justify-center overflow-hidden">
-            {/* Background grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:24px_24px] opacity-40"></div>
-
-            {/* Central Node */}
-            <div className="absolute bg-navy-900 text-white border-2 border-saffron-500 rounded-full h-20 w-20 flex flex-col items-center justify-center text-center p-2 shadow z-10">
-              <span className="text-[8px] font-bold uppercase tracking-wider text-saffron-500">Suspect</span>
-              <p className="text-[9px] font-bold overflow-hidden text-ellipsis w-full">
-                {selectedNode ? selectedNode.value : "+91 99988 87776"}
-              </p>
-            </div>
-
-            {/* Relationship Lines & Satellites */}
-            {/* Node 1 */}
-            <div className="absolute top-12 left-1/4 flex flex-col items-center">
-              <div className="bg-white border-2 border-red-600 rounded-full h-14 w-14 flex flex-col items-center justify-center text-center p-1.5 shadow">
-                <span className="text-[8px] font-bold text-govgray-600 uppercase">UPI Handle</span>
-                <p className="text-[8px] font-bold text-navy-900 w-full overflow-hidden text-ellipsis">cbi@oksbi</p>
-              </div>
-              <span className="text-[8px] text-red-600 font-bold bg-red-100 px-1 border border-red-200 mt-1 uppercase tracking-wider rounded">Linked Mule</span>
-            </div>
-            {/* Line SVG mock 1 */}
-            <svg className="absolute inset-0 h-full w-full pointer-events-none">
-              <line x1="25%" y1="18%" x2="50%" y2="50%" stroke="#d1d5db" strokeWidth="2" strokeDasharray="4" />
-            </svg>
-
-            {/* Node 2 */}
-            <div className="absolute bottom-12 left-[15%] flex flex-col items-center">
-              <div className="bg-white border border-govgray-300 rounded-full h-14 w-14 flex flex-col items-center justify-center text-center p-1.5 shadow">
-                <span className="text-[8px] font-bold text-govgray-600 uppercase">IP Address</span>
-                <p className="text-[8px] font-bold text-navy-900 w-full overflow-hidden text-ellipsis">192.168.1.1</p>
-              </div>
-            </div>
-            {/* Line SVG mock 2 */}
-            <svg className="absolute inset-0 h-full w-full pointer-events-none">
-              <line x1="18%" y1="78%" x2="50%" y2="50%" stroke="#d1d5db" strokeWidth="2" />
-            </svg>
-
-            {/* Node 3 */}
-            <div className="absolute top-16 right-1/4 flex flex-col items-center">
-              <div className="bg-white border border-govgray-300 rounded-full h-14 w-14 flex flex-col items-center justify-center text-center p-1.5 shadow">
-                <span className="text-[8px] font-bold text-govgray-600 uppercase">Account</span>
-                <p className="text-[8px] font-bold text-navy-900 w-full overflow-hidden text-ellipsis">SBI ...2049</p>
-              </div>
-            </div>
-            {/* Line SVG mock 3 */}
-            <svg className="absolute inset-0 h-full w-full pointer-events-none">
-              <line x1="75%" y1="24%" x2="50%" y2="50%" stroke="#d1d5db" strokeWidth="2" />
-            </svg>
-
-            {/* Node 4 */}
-            <div className="absolute bottom-16 right-12 flex flex-col items-center">
-              <div className="bg-white border border-govgray-300 rounded-full h-14 w-14 flex flex-col items-center justify-center text-center p-1.5 shadow">
-                <span className="text-[8px] font-bold text-govgray-600 uppercase">Victim</span>
-                <p className="text-[8px] font-bold text-navy-900 w-full overflow-hidden text-ellipsis">Rajesh K.</p>
-              </div>
-              <span className="text-[8px] text-green-700 font-bold bg-green-100 px-1 border border-green-200 mt-1 uppercase tracking-wider rounded">Victim</span>
-            </div>
-            {/* Line SVG mock 4 */}
-            <svg className="absolute inset-0 h-full w-full pointer-events-none">
-              <line x1="88%" y1="72%" x2="50%" y2="50%" stroke="#d1d5db" strokeWidth="2" />
-            </svg>
+        {/* Left Column: Select active alerts */}
+        <div className="bg-white border border-govgray-200 rounded p-4 flex flex-col gap-4 shadow-sm">
+          <h3 className="font-extrabold text-xs text-navy-900 uppercase tracking-wide border-b border-govgray-200 pb-2">
+            Active Alerts Directory
+          </h3>
+          {loading && <div className="text-xs font-semibold text-govgray-600">Loading directory...</div>}
+          <div className="flex flex-col gap-2 overflow-y-auto max-h-[420px]">
+            {!loading && alerts.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setSelectedAlert(a)}
+                className={`text-left p-3 rounded border text-xs font-bold transition-all flex flex-col gap-1.5 ${
+                  selectedAlert?.id === a.id 
+                    ? "bg-navy-900 text-white border-navy-900 shadow-sm" 
+                    : "bg-govgray-50/50 hover:bg-govgray-50 text-navy-900 border-govgray-200"
+                }`}
+              >
+                <div className="flex justify-between items-center text-[10px] uppercase font-extrabold">
+                  <span>{a.id}</span>
+                  <span className={selectedAlert?.id === a.id ? "text-saffron-500" : "text-govgray-600"}>
+                    {a.status}
+                  </span>
+                </div>
+                <span>{a.category}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Node details column */}
-        <div className="bg-white border border-govgray-200 rounded p-5 flex flex-col gap-4 shadow-sm">
-          <h3 className="font-extrabold text-xs text-navy-900 uppercase tracking-wide border-b border-govgray-200 pb-3">
-            Selected Entity Details
-          </h3>
+        {/* Center: Graph Canvas Area */}
+        <div className="lg:col-span-2 bg-white border border-govgray-200 rounded p-5 flex flex-col gap-4 shadow-sm relative min-h-[480px]">
+          <div className="flex justify-between items-center border-b border-govgray-200 pb-2">
+            <h3 className="font-extrabold text-xs text-navy-900 uppercase tracking-wide">
+              Active Entity Relationship Tree
+            </h3>
+            <span className="text-[10px] text-govgray-600 font-bold uppercase tracking-wider">
+              Lightweight Visual Nodes
+            </span>
+          </div>
 
-          {!selectedNode ? (
-            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center text-govgray-600">
-              <Info className="h-8 w-8 text-govgray-300" />
-              <p className="text-xs font-semibold">No Entity Selected</p>
-              <span className="text-[10px] max-w-[200px] leading-relaxed">
-                Submit a search query or click a node on the canvas to display associated threat trees.
-              </span>
+          {selectedAlert ? (
+            <div className="bg-govgray-50 border border-govgray-200 rounded-lg flex-1 relative overflow-hidden flex flex-col items-center py-6 min-h-[400px]">
+              {/* Grid Background */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:20px_20px] opacity-30"></div>
+              
+              {/* Category Node (Level 1) */}
+              <div className="bg-navy-900 text-white border border-saffron-500 rounded p-3 text-center text-xs font-extrabold shadow-sm w-44 z-10">
+                <span className="text-[9px] font-bold text-saffron-500 uppercase block tracking-wider">Scam Category</span>
+                {selectedAlert.category}
+              </div>
+
+              {/* Arrow Line 1 */}
+              <div className="h-10 w-0.5 bg-govgray-300 relative">
+                <div className="absolute -bottom-1 -left-[3px] border-l-4 border-r-4 border-t-4 border-transparent border-t-govgray-400"></div>
+              </div>
+
+              {/* Alert Node (Level 2) */}
+              <div className="bg-white border-2 border-navy-900 rounded p-3 text-center text-xs font-extrabold shadow-sm w-48 z-10 flex flex-col gap-1">
+                <span className="text-[9px] font-bold text-navy-900 opacity-75 uppercase tracking-wide">Warning Alert Node</span>
+                <span className="text-navy-900">{selectedAlert.id}</span>
+                <span className="text-[9px] text-govgray-600 font-semibold">{selectedAlert.location || "National"}</span>
+              </div>
+
+              {/* Connection Lines & Reports Nodes */}
+              {linkedReports.length > 0 ? (
+                <div className="w-full flex flex-col items-center">
+                  {/* Vertical Connection Spindle */}
+                  <div className="h-8 w-0.5 bg-govgray-300"></div>
+                  
+                  {/* Reports Row (Level 3) */}
+                  <div className="flex justify-around items-start w-full gap-4 px-4">
+                    {linkedReports.map((rep) => (
+                      <div key={rep.id} className="flex flex-col items-center max-w-[140px]">
+                        {/* Connecting Line to Child */}
+                        <div className="h-6 w-0.5 bg-govgray-300 relative">
+                          <div className="absolute -bottom-1 -left-[3px] border-l-4 border-r-4 border-t-4 border-transparent border-t-govgray-400"></div>
+                        </div>
+
+                        {/* Report Node */}
+                        <div className="bg-white border border-govgray-300 rounded-lg p-2.5 shadow-xs text-[10px] font-semibold text-navy-900 text-center w-full flex flex-col gap-1.5 z-10 hover:border-navy-900 transition-colors">
+                          <span className="text-[8px] font-bold text-govgray-600 uppercase tracking-wide">Report {rep.id}</span>
+                          <p className="overflow-hidden text-ellipsis max-h-[36px] leading-tight font-medium">
+                            &ldquo;{rep.text}&rdquo;
+                          </p>
+                          <div className="border-t border-govgray-100 pt-1 flex justify-center">
+                            <RiskBadge level={rep.risk_level} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center mt-6 text-[10px] font-bold text-govgray-600">
+                  <ArrowRight className="h-5 w-5 rotate-90 mb-1" />
+                  <span>No dynamically linked reports yet.</span>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {/* Node meta */}
-              <div className="bg-govgray-50 p-4 border border-govgray-200 rounded flex flex-col gap-1.5">
-                <span className="text-[10px] text-govgray-600 font-bold uppercase tracking-wider">
-                  {selectedNode.label} Indicator
-                </span>
-                <span className="text-sm font-extrabold text-navy-900">
-                  {selectedNode.value}
-                </span>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-[10px] font-semibold text-govgray-600">Threat Matrix:</span>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                    selectedNode.risk === "CRITICAL" ? "bg-red-100 text-red-800 border-red-200 font-extrabold" : "bg-amber-100 text-amber-800 border-amber-200"
-                  }`}>
-                    {selectedNode.risk}
-                  </span>
+            <div className="text-center py-24 text-xs font-bold text-govgray-600">
+              Select an alert from the directory to visualize relations.
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Node Info Details */}
+        <div className="bg-white border border-govgray-200 rounded p-4 flex flex-col gap-4 shadow-sm">
+          <h3 className="font-extrabold text-xs text-navy-900 uppercase tracking-wide border-b border-govgray-200 pb-2 flex items-center gap-1">
+            <Shield className="h-4 w-4 text-saffron-500" />
+            Selected Node Inspector
+          </h3>
+
+          {selectedAlert ? (
+            <div className="flex flex-col gap-3.5 text-xs text-navy-900">
+              <div className="bg-govgray-50 border border-govgray-200 rounded p-3 flex flex-col gap-1">
+                <span className="text-[8px] font-bold text-govgray-600 uppercase">Warning Entity</span>
+                <span className="font-extrabold text-navy-900">{selectedAlert.id}</span>
+                <span className="text-[10px] font-semibold text-govgray-600 mt-1">{selectedAlert.title}</span>
+              </div>
+
+              <div className="flex flex-col gap-1 border-b border-govgray-100 pb-2">
+                <span className="text-[9px] font-bold text-govgray-600 uppercase tracking-wide">Threat Severity</span>
+                <div>
+                  <RiskBadge level={selectedAlert.risk_level} />
                 </div>
               </div>
 
-              {/* Connections list */}
-              <div>
-                <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider block mb-2">
-                  Linked Entity Nodes ({selectedNode.connections.length})
-                </span>
-                <div className="flex flex-col gap-2">
-                  {selectedNode.connections.map((conn, idx) => (
-                    <div key={idx} className="border border-govgray-200 rounded p-2.5 bg-white flex flex-col gap-1 hover:border-navy-900 transition-colors">
-                      <div className="flex justify-between items-center text-[10px] font-bold">
-                        <span className="text-govgray-600">{conn.type}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] border uppercase ${
-                          conn.risk === "CRITICAL"
-                            ? "bg-red-100 text-red-800 border-red-200"
-                            : conn.risk === "HIGH"
-                            ? "bg-amber-100 text-amber-800 border-amber-200"
-                            : "bg-green-100 text-green-800 border-green-200"
-                        }`}>
-                          {conn.status}
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-navy-900 flex items-center gap-1.5">
-                        <Link2 className="h-3.5 w-3.5 text-saffron-500 shrink-0" />
-                        {conn.label}
-                      </p>
+              <div className="flex flex-col gap-1 border-b border-govgray-100 pb-2">
+                <span className="text-[9px] font-bold text-govgray-600 uppercase tracking-wide">Incident Counts</span>
+                <span className="font-bold">{selectedAlert.incident_count} reports linked</span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-bold text-govgray-600 uppercase tracking-wide">Linked Reports Details</span>
+                <div className="flex flex-col gap-1.5 mt-1 max-h-[160px] overflow-y-auto">
+                  {linkedReports.map((rep) => (
+                    <div key={rep.id} className="border border-govgray-200 rounded p-2 bg-white text-[10px] font-semibold flex items-center justify-between">
+                      <span className="text-govgray-600">{rep.id}</span>
+                      <RiskBadge level={rep.risk_level} />
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Actions panel */}
-              <div className="border-t border-govgray-200 pt-3 mt-1 flex gap-2">
-                <button className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2 rounded transition-colors flex items-center justify-center gap-1.5">
-                  <UserMinus className="h-4 w-4" /> Block Mule accounts
-                </button>
-              </div>
+            </div>
+          ) : (
+            <div className="flex justify-center items-center py-12 text-center text-govgray-600 text-xs">
+              <Info className="h-6 w-6 text-govgray-300 mb-1" />
+              <span>Select node directories to trace details.</span>
             </div>
           )}
         </div>

@@ -127,6 +127,14 @@ export default function Navbar() {
                 Graph Explorer
               </Link>
               <Link
+                href="/authority/map"
+                className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${
+                  pathname === "/authority/map" ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-govgray-100"
+                }`}
+              >
+                Heatmap
+              </Link>
+              <Link
                 href="/authority/counterfeit"
                 className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${
                   pathname === "/authority/counterfeit" ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-govgray-100"

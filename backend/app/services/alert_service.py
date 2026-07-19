@@ -109,7 +109,13 @@ def create_alert_from_threat(threat_result: dict, original_text: str) -> Optiona
         advisory=advisory,
         source_message=original_text,
         incident_count=1,
-        recommended_action=recommended_actions
+        recommended_action=recommended_actions,
+        status="ACTIVE",
+        updated_at=current_time_str,
+        status_changed_by="System",
+        history=[
+            {"event": "Alert created", "time": current_time_str}
+        ]
     )
 
     logger.info(f"Instantiated new alert: '{new_alert_id}' for category '{category}'")

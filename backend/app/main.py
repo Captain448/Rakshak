@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.citizen import router as citizen_router
+from app.api.authority import router as authority_router
 
 app = FastAPI(
     title="Rakshak AI Backend",
@@ -22,8 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include citizen router under v1 prefix
+# Include routers
 app.include_router(citizen_router, prefix="/api/v1")
+app.include_router(authority_router, prefix="/api/v1/authority")
 
 @app.get("/")
 def read_root():
