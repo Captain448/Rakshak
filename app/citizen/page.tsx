@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Upload, AlertCircle, RefreshCw, HelpCircle } from "lucide-react";
+import { ShieldCheck, AlertCircle, RefreshCw, HelpCircle, Image as ImageIcon, FileText, X } from "lucide-react";
 import RiskBadge from "@/components/ui/RiskBadge";
 
 interface RiskAnalysisResult {
@@ -18,19 +18,61 @@ interface RiskAnalysisResult {
 }
 
 export default function CitizenShield() {
-  const [indicatorType, setIndicatorType] = useState<"text" | "screenshot" | "pdf">("text");
   const [inputText, setInputText] = useState("");
   const [senderHandle, setSenderHandle] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
   const [result, setResult] = useState<RiskAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      setPdfFile(e.target.files[0]);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPastedImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          setImageFile(file);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setPastedImagePreview(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+          // Prevent default pasting of binary text if pasting in text inputs
+          e.preventDefault();
+        }
+      }
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setPastedImagePreview(null);
+  };
+
+  const removePdf = () => {
+    setPdfFile(null);
   };
 
   const runAnalysis = async () => {
@@ -44,18 +86,27 @@ export default function CitizenShield() {
       "Threat Intelligence Agent: Searching active call & IP registries...",
       "Fraud Graph Agent: Checking transaction paths in database...",
       "Geospatial Agent: Checking regional report density metrics...",
-      "Alert Agent: Compiling warning recommendations..."
+      "Alert Agent: Compiled warning vectors."
     ];
 
     for (let i = 0; i < steps.length; i++) {
       setLoadingStep(steps[i]);
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     try {
-      const textToSend = indicatorType === "text"
-        ? inputText
-        : `Uploaded file indicator: ${selectedFile?.name || "unnamed_file"}`;
+      const parts: string[] = [];
+      if (inputText.trim()) {
+        parts.push(inputText.trim());
+      }
+      if (pdfFile) {
+        parts.push(`Uploaded PDF Warrant: ${pdfFile.name}`);
+      }
+      if (imageFile) {
+        parts.push(`Uploaded Screenshot: ${imageFile.name}`);
+      }
+
+      const textToSend = parts.join(" | ");
 
       // Get logged in user if any
       const userSessionStr = typeof window !== "undefined" ? localStorage.getItem("rakshak_user") : null;
@@ -86,8 +137,8 @@ export default function CitizenShield() {
         matchedVectors: data.reasons && data.reasons.length > 0 ? data.reasons : [data.category],
         logs: [
           `Citizen Risk Agent: Identified script matches for ${data.category}.`,
-          `Threat Intelligence: Risk level evaluated as ${data.risk_level} with ${data.score}% score.`,
-          `Alert Agent: Compiled ${data.reasons ? data.reasons.length : 0} warning vectors.`
+          `Threat Heuristics: Evaluated risk as ${data.risk_level} with ${data.score}% score.`,
+          `Alert Agent: Compiled warning vectors.`
         ],
         recommendations: data.recommendations && data.recommendations.length > 0
           ? data.recommendations.join(" ")
@@ -105,8 +156,10 @@ export default function CitizenShield() {
     }
   };
 
+  const isFormValid = inputText.trim() !== "" || pdfFile !== null || imageFile !== null;
+
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto py-2">
+    <div className="flex flex-col gap-6 max-w-4xl mx-auto py-2" onPaste={handlePaste}>
       {/* Title */}
       <div className="border-b border-govgray-200 pb-4">
         <h1 className="text-2xl font-extrabold text-navy-900 flex items-center gap-2">
@@ -114,7 +167,7 @@ export default function CitizenShield() {
           Citizen Shield Verification Console
         </h1>
         <p className="text-xs text-govgray-600 mt-1">
-          Upload or paste suspicious interactions (SMS, calls, mock warrant letters) to run real-time agent audit checks
+          Provide message content, upload documents/screenshots, or paste a clipboard image directly.
         </p>
       </div>
 
@@ -122,107 +175,144 @@ export default function CitizenShield() {
       <div className="flex flex-col gap-6 w-full">
         {/* Form Input Card */}
         <div className="w-full bg-white border border-govgray-200 rounded p-5 flex flex-col gap-5 shadow-sm">
-          {/* Tab selector */}
-          <div className="flex border-b border-govgray-200">
-            <button
-              onClick={() => { setIndicatorType("text"); setResult(null); }}
-              className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors ${
-                indicatorType === "text" ? "border-navy-900 text-navy-900" : "border-transparent text-govgray-600 hover:text-navy-900"
-              }`}
-            >
-              Paste Message / SMS
-            </button>
-            <button
-              onClick={() => { setIndicatorType("screenshot"); setResult(null); }}
-              className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors ${
-                indicatorType === "screenshot" ? "border-navy-900 text-navy-900" : "border-transparent text-govgray-600 hover:text-navy-900"
-              }`}
-            >
-              Upload Screenshot
-            </button>
-            <button
-              onClick={() => { setIndicatorType("pdf"); setResult(null); }}
-              className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors ${
-                indicatorType === "pdf" ? "border-navy-900 text-navy-900" : "border-transparent text-govgray-600 hover:text-navy-900"
-              }`}
-            >
-              Upload PDF Warrant
-            </button>
-          </div>
-
-          {/* Form Content */}
-          {indicatorType === "text" && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-                  SMS / Message content (Paste here)
-                </label>
-                <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="e.g. 'Your bank account will be blocked within 2 hours. Call officer Kumar on +91987654...'"
-                  rows={5}
-                  className="bg-white border border-govgray-300 rounded p-3 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-                  Sender Number / Handle / UPI / Domain (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={senderHandle}
-                  onChange={(e) => setSenderHandle(e.target.value)}
-                  placeholder="e.g. 'HDFCBK', '+91 99988 87776', 'verify@oksbi', 'sbi-kyc-verify.in'"
-                  className="bg-white border border-govgray-300 rounded p-2.5 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
-                />
-              </div>
-            </div>
-          )}
-
-          {(indicatorType === "screenshot" || indicatorType === "pdf") && (
-            <div className="flex flex-col gap-3">
+          
+          <div className="flex flex-col gap-4">
+            {/* Message text input */}
+            <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-                Select File (PNG, JPG, or PDF Document)
+                SMS / Message content (Optional)
               </label>
-              <div className="border-2 border-dashed border-govgray-300 rounded p-8 text-center flex flex-col items-center justify-center gap-3 bg-govgray-50/50 hover:bg-govgray-50 transition-colors">
-                <Upload className="h-8 w-8 text-navy-700" />
-                <div>
-                  <span className="text-xs font-bold text-navy-900 block">
-                    {selectedFile ? selectedFile.name : "Drag & Drop files here"}
-                  </span>
-                  <span className="text-[10px] text-govgray-600">
-                    Maximum upload size: 10MB
-                  </span>
-                </div>
-                <input
-                  type="file"
-                  id="file-upload"
-                  onChange={handleFileChange}
-                  accept={indicatorType === "pdf" ? ".pdf" : "image/*"}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className="bg-navy-900 hover:bg-navy-800 text-white font-bold text-xs px-4 py-2 rounded cursor-pointer transition-colors"
-                >
-                  Choose File
-                </label>
-              </div>
+              <textarea
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="e.g. 'Your bank account will be blocked within 2 hours...' (Or focus here and press Ctrl+V to paste a screenshot)"
+                rows={4}
+                className="bg-white border border-govgray-300 rounded p-3 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
+              />
             </div>
-          )}
+
+            {/* Sender handle */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
+                Sender Number / Handle / UPI / Domain (Optional)
+              </label>
+              <input
+                type="text"
+                value={senderHandle}
+                onChange={(e) => setSenderHandle(e.target.value)}
+                placeholder="e.g. 'HDFCBK', '+91 99988 87776', 'verify@oksbi', 'sbi-kyc-verify.in'"
+                className="bg-white border border-govgray-300 rounded p-2.5 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
+              />
+            </div>
+
+            {/* Upload fields side by side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Image Screenshot dropzone */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
+                  Attachment: Screenshot / Image (Optional)
+                </label>
+                <div className="border border-dashed border-govgray-300 rounded p-4 flex flex-col items-center justify-center gap-2 bg-govgray-50/50 hover:bg-govgray-50 transition-colors min-h-[120px] relative">
+                  {!imageFile ? (
+                    <>
+                      <ImageIcon className="h-6 w-6 text-navy-700" />
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-navy-900 block">Screenshot Image</span>
+                        <span className="text-[9px] text-govgray-600 block mt-0.5">Drag here or paste directly (Ctrl+V)</span>
+                      </div>
+                      <input
+                        type="file"
+                        id="image-upload"
+                        onChange={handleImageChange}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="bg-navy-900 hover:bg-navy-800 text-white font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-colors mt-1"
+                      >
+                        Choose Image
+                      </label>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 w-full">
+                      {pastedImagePreview && (
+                        <div className="w-12 h-12 border border-govgray-300 rounded overflow-hidden relative shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={pastedImagePreview} alt="Screenshot Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <span className="text-[10px] font-bold text-navy-900 truncate max-w-[180px]">{imageFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="text-[9px] font-bold text-red-600 hover:underline flex items-center gap-0.5"
+                      >
+                        <X className="h-3 w-3" /> Remove File
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* PDF Warrant letter dropzone */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
+                  Attachment: PDF Document / Warrant (Optional)
+                </label>
+                <div className="border border-dashed border-govgray-300 rounded p-4 flex flex-col items-center justify-center gap-2 bg-govgray-50/50 hover:bg-govgray-50 transition-colors min-h-[120px] relative">
+                  {!pdfFile ? (
+                    <>
+                      <FileText className="h-6 w-6 text-navy-700" />
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-navy-900 block">Warrant or Letter PDF</span>
+                        <span className="text-[9px] text-govgray-600 block mt-0.5">Drag & drop PDF files here</span>
+                      </div>
+                      <input
+                        type="file"
+                        id="pdf-upload"
+                        onChange={handlePdfChange}
+                        accept=".pdf"
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="pdf-upload"
+                        className="bg-navy-900 hover:bg-navy-800 text-white font-bold text-[9px] px-2.5 py-1 rounded cursor-pointer transition-colors mt-1"
+                      >
+                        Choose PDF
+                      </label>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 w-full">
+                      <FileText className="h-8 w-8 text-saffron-500" />
+                      <span className="text-[10px] font-bold text-navy-900 truncate max-w-[180px]">{pdfFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={removePdf}
+                        className="text-[9px] font-bold text-red-600 hover:underline flex items-center gap-0.5"
+                      >
+                        <X className="h-3 w-3" /> Remove File
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
 
           {/* Action button */}
           <button
             onClick={runAnalysis}
-            disabled={loading || (indicatorType === "text" && !inputText) || ((indicatorType === "screenshot" || indicatorType === "pdf") && !selectedFile)}
-            className="bg-saffron-500 hover:bg-saffron-600 disabled:bg-govgray-200 disabled:text-govgray-600 text-white font-bold text-sm py-2.5 rounded shadow transition-colors flex items-center justify-center gap-2"
+            disabled={loading || !isFormValid}
+            className="bg-saffron-500 hover:bg-saffron-600 disabled:bg-govgray-200 disabled:text-govgray-600 text-white font-bold text-sm py-2.5 rounded shadow transition-colors flex items-center justify-center gap-2 mt-2"
           >
             {loading ? (
               <>
                 <RefreshCw className="h-4.5 w-4.5 animate-spin" />
-                Running Security Audit...
+                Running Multi-Agent Risk Analysis...
               </>
             ) : (
               "Run Multi-Agent Risk Analysis"
@@ -266,7 +356,7 @@ export default function CitizenShield() {
               <HelpCircle className="h-10 w-10 text-govgray-300" />
               <p className="text-xs font-semibold">Awaiting Verification Parameters</p>
               <span className="text-[10px] max-w-[280px] leading-relaxed">
-                Provide message content and optional sender handle to run Central Safety evaluations.
+                Provide text, a screenshot, or a document above to run safety evaluations.
               </span>
             </div>
           )}
@@ -348,7 +438,7 @@ export default function CitizenShield() {
               {/* Verdict Indicator */}
               <div className="flex flex-col gap-2 items-center justify-center p-5 bg-govgray-50 border border-govgray-200 rounded text-center">
                 <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-                  Threat Classification
+                  Threat Heuristic Verdict
                 </span>
                 <RiskBadge level={result.verdict} />
                 <div className="mt-2 w-full max-w-md bg-govgray-200 rounded-full h-2.5">
