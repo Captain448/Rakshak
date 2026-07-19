@@ -7,3 +7,5 @@ class ThreatVerifyResponse(BaseModel):
     category: str
     reasons: List[str]
     recommendations: List[str]
+    sender_verified: bool = False
+    sender_blacklisted: bool = False

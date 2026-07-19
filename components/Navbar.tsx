@@ -1,13 +1,41 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, AlertCircle, FileText, UserCheck, MessageSquare, Landmark } from "lucide-react";
 
+interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+  full_name: string;
+}
+
 export default function Navbar() {
   const pathname = usePathname();
-
   const isAuthority = pathname?.startsWith("/authority");
+
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const userSessionStr = typeof window !== "undefined" ? localStorage.getItem("rakshak_user") : null;
+    if (userSessionStr) {
+      try {
+        setUser(JSON.parse(userSessionStr));
+      } catch {
+        setUser(null);
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("rakshak_user");
+    setUser(null);
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
 
   return (
     <header className="w-full flex flex-col border-b border-govgray-200">
@@ -99,14 +127,51 @@ export default function Navbar() {
                 <FileText className="h-4 w-4" />
                 Report Fraud
               </Link>
+              
               <div className="w-px h-6 bg-govgray-200 mx-2"></div>
-              <Link
-                href="/authority"
-                className="px-3.5 py-2 rounded border border-navy-900 text-navy-900 text-sm font-bold flex items-center gap-1.5 hover:bg-navy-900 hover:text-white transition-colors"
-              >
-                <UserCheck className="h-4 w-4" />
-                Officer Portal
-              </Link>
+              
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/profile"
+                    className="px-3 py-2 bg-govgray-100 border border-govgray-200 text-navy-900 rounded text-xs font-bold hover:bg-govgray-200 transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    <UserCheck className="h-4 w-4 text-saffron-500" />
+                    <span>Profile: {user.username}</span>
+                  </Link>
+                  {/* Show Officer Portal for logged-in officers */}
+                  {(user.username.includes("officer") || user.email.includes("officer")) && (
+                    <Link
+                      href="/authority"
+                      className="px-3 py-2 bg-navy-900 text-white rounded text-xs font-bold hover:bg-navy-800 transition-colors"
+                    >
+                      Officer Portal
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="px-2.5 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Link
+                    href="/login"
+                    className="px-3.5 py-2 rounded border border-navy-900 text-navy-900 text-sm font-bold flex items-center gap-1.5 hover:bg-navy-900 hover:text-white transition-colors"
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/authority"
+                    className="px-3.5 py-2 rounded bg-govgray-100 border border-govgray-300 text-navy-900 text-sm font-bold flex items-center gap-1.5 hover:bg-govgray-200 transition-colors"
+                  >
+                    Officer Portal
+                  </Link>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -135,6 +200,14 @@ export default function Navbar() {
                 Heatmap
               </Link>
               <Link
+                href="/authority/scammers"
+                className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${
+                  pathname === "/authority/scammers" ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-govgray-100"
+                }`}
+              >
+                Scammers List
+              </Link>
+              <Link
                 href="/authority/counterfeit"
                 className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${
                   pathname === "/authority/counterfeit" ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-govgray-100"
@@ -151,12 +224,12 @@ export default function Navbar() {
                 Cases View
               </Link>
               <div className="w-px h-6 bg-govgray-200 mx-2"></div>
-              <Link
-                href="/"
+              <button
+                onClick={handleLogout}
                 className="px-3.5 py-2 rounded border border-saffron-500 text-saffron-600 text-sm font-bold flex items-center gap-1.5 hover:bg-saffron-500 hover:text-white transition-colors"
               >
                 Exit Portal
-              </Link>
+              </button>
             </>
           )}
         </nav>

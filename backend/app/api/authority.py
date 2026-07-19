@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from app.storage.alert_store import get_all_alerts
 from app.storage.report_store import get_all_reports
+from app.storage.scammer_store import get_all_scammers, add_scammer
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -121,3 +123,21 @@ def archive_alert(alert_id: str):
     })
     
     return {"message": "Alert status set to ARCHIVED", "alert": target_alert}
+
+class ScammerAddRequest(BaseModel):
+    contact: str
+
+@router.get("/scammers")
+def get_scammers():
+    """
+    Returns the list of verified blacklisted scammer contacts.
+    """
+    return get_all_scammers()
+
+@router.post("/scammers")
+def add_scammer_endpoint(req: ScammerAddRequest):
+    """
+    Appends a new scammer phone number/handle to the blacklist.
+    """
+    add_scammer(req.contact)
+    return {"message": "Contact added to scammer blacklist.", "scammers": get_all_scammers()}

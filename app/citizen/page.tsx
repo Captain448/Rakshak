@@ -10,11 +10,14 @@ interface RiskAnalysisResult {
   matchedVectors: string[];
   logs: string[];
   recommendations: string;
+  senderVerified?: boolean;
+  senderBlacklisted?: boolean;
 }
 
 export default function CitizenShield() {
   const [indicatorType, setIndicatorType] = useState<"text" | "screenshot" | "pdf">("text");
   const [inputText, setInputText] = useState("");
+  const [senderHandle, setSenderHandle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
@@ -36,14 +39,14 @@ export default function CitizenShield() {
       "Initialising Public Safety Orchestrator...",
       "Citizen Risk Agent: Processing input OCR & Text layouts...",
       "Threat Intelligence Agent: Searching active call & IP registries...",
-      "Fraud Graph Agent: Checking transaction paths in Neo4j database...",
+      "Fraud Graph Agent: Checking transaction paths in database...",
       "Geospatial Agent: Checking regional report density metrics...",
       "Alert Agent: Compiling warning recommendations..."
     ];
 
     for (let i = 0; i < steps.length; i++) {
       setLoadingStep(steps[i]);
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 600));
     }
 
     try {
@@ -51,13 +54,21 @@ export default function CitizenShield() {
         ? inputText
         : `Uploaded file indicator: ${selectedFile?.name || "unnamed_file"}`;
 
+      // Get logged in user if any
+      const userSessionStr = typeof window !== "undefined" ? localStorage.getItem("rakshak_user") : null;
+      const userObj = userSessionStr ? JSON.parse(userSessionStr) : null;
+
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const res = await fetch(`${API_URL}/api/v1/citizen/verify-threat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ text: textToSend })
+        body: JSON.stringify({ 
+          text: textToSend,
+          sender_handle: senderHandle.trim() || undefined,
+          user_id: userObj ? userObj.id : undefined
+        })
       });
 
       if (!res.ok) {
@@ -77,7 +88,9 @@ export default function CitizenShield() {
         ],
         recommendations: data.recommendations && data.recommendations.length > 0
           ? data.recommendations.join(" ")
-          : "Exercise caution. Do not communicate further or share credentials."
+          : "Exercise caution. Do not communicate further or share credentials.",
+        senderVerified: data.sender_verified,
+        senderBlacklisted: data.sender_blacklisted
       });
     } catch {
       setError("Threat analysis service temporarily unavailable.");
@@ -99,9 +112,10 @@ export default function CitizenShield() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column: Form Input */}
-        <div className="md:col-span-2 bg-white border border-govgray-200 rounded p-5 flex flex-col gap-5">
+      {/* Stacked Layout */}
+      <div className="flex flex-col gap-6 w-full">
+        {/* Form Input Card */}
+        <div className="w-full bg-white border border-govgray-200 rounded p-5 flex flex-col gap-5 shadow-sm">
           {/* Tab selector */}
           <div className="flex border-b border-govgray-200">
             <button
@@ -132,17 +146,32 @@ export default function CitizenShield() {
 
           {/* Form Content */}
           {indicatorType === "text" && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-                SMS / Message content (Paste here)
-              </label>
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="e.g. 'Your bank account will be blocked within 2 hours. Call officer Kumar on +91987654...'"
-                rows={5}
-                className="bg-white border border-govgray-300 rounded p-3 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
-              />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
+                  SMS / Message content (Paste here)
+                </label>
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="e.g. 'Your bank account will be blocked within 2 hours. Call officer Kumar on +91987654...'"
+                  rows={5}
+                  className="bg-white border border-govgray-300 rounded p-3 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
+                  Sender Number / Handle / UPI (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={senderHandle}
+                  onChange={(e) => setSenderHandle(e.target.value)}
+                  placeholder="e.g. 'HDFCBK', '+91 99988 87776', 'verify@oksbi'"
+                  className="bg-white border border-govgray-300 rounded p-2.5 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
+                />
+              </div>
             </div>
           )}
 
@@ -195,15 +224,15 @@ export default function CitizenShield() {
           </button>
         </div>
 
-        {/* Right Column: Dynamic Verdict / Guide */}
-        <div className="bg-white border border-govgray-200 rounded p-5 flex flex-col gap-4">
+        {/* Verification Output Card (Positioned below the form) */}
+        <div className="w-full bg-white border border-govgray-200 rounded p-5 flex flex-col gap-4 shadow-sm">
           <h3 className="font-extrabold text-sm text-navy-900 uppercase tracking-wide border-b border-govgray-200 pb-2">
             Verification Output
           </h3>
 
           {/* Loader status step */}
           {loading && (
-            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center">
+            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center animate-fade-in">
               <RefreshCw className="h-8 w-8 animate-spin text-saffron-500" />
               <p className="text-xs font-bold text-navy-900 uppercase tracking-wider">
                 Orchestrating Agents
@@ -216,7 +245,7 @@ export default function CitizenShield() {
 
           {/* Error Message */}
           {!loading && error && (
-            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center text-red-800 bg-red-50 border border-red-200 rounded p-4">
+            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center text-red-800 bg-red-50 border border-red-200 rounded p-4 animate-fade-in">
               <AlertCircle className="h-10 w-10 text-red-600 animate-pulse" />
               <p className="text-xs font-bold uppercase tracking-wider">Analysis Offline</p>
               <span className="text-xs font-semibold max-w-xs leading-relaxed">
@@ -227,27 +256,41 @@ export default function CitizenShield() {
 
           {/* No results yet */}
           {!loading && !result && !error && (
-            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center text-govgray-600">
+            <div className="flex flex-col gap-3 justify-center items-center py-12 text-center text-govgray-600 animate-fade-in">
               <HelpCircle className="h-10 w-10 text-govgray-300" />
               <p className="text-xs font-semibold">Awaiting Verification Parameters</p>
-              <span className="text-[10px] max-w-[200px] leading-relaxed">
-                Provide text or upload verification images/files to activate threat models.
+              <span className="text-[10px] max-w-[280px] leading-relaxed">
+                Provide message content and optional sender handle to run Central Safety evaluations.
               </span>
             </div>
           )}
 
           {/* Result Renders */}
           {!loading && result && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5 animate-fade-in">
+              {/* Verified or Blacklisted Alerts */}
+              {result.senderVerified && (
+                <div className="bg-green-50 border border-green-200 text-green-800 text-xs font-bold p-4 rounded flex items-center gap-2.5 shadow-xs">
+                  <span className="h-2.5 w-2.5 bg-green-600 rounded-full animate-pulse shrink-0"></span>
+                  <span>🛡️ VERIFIED CONTACT: The sender matches a verified official bank/government registry. However, verify the message content is authentic.</span>
+                </div>
+              )}
+              {result.senderBlacklisted && (
+                <div className="bg-red-50 border border-red-200 text-red-800 text-xs font-bold p-4 rounded flex items-center gap-2.5 shadow-xs">
+                  <span className="h-2.5 w-2.5 bg-red-600 rounded-full animate-ping shrink-0"></span>
+                  <span>🚨 DANGER BLACKLISTED: The sender matches a known scam contact in the National Scammer Registry!</span>
+                </div>
+              )}
+
               {/* Verdict Indicator */}
-              <div className="flex flex-col gap-2 items-center justify-center p-4 bg-govgray-50 border border-govgray-200 rounded text-center">
+              <div className="flex flex-col gap-2 items-center justify-center p-5 bg-govgray-50 border border-govgray-200 rounded text-center">
                 <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
                   Threat Classification
                 </span>
                 <RiskBadge level={result.verdict} />
-                <div className="mt-2 w-full bg-govgray-200 rounded-full h-2">
+                <div className="mt-2 w-full max-w-md bg-govgray-200 rounded-full h-2.5">
                   <div
-                    className={`h-2 rounded-full ${
+                    className={`h-2.5 rounded-full ${
                       result.verdict === "CRITICAL"
                         ? "bg-red-600"
                         : result.verdict === "HIGH"
@@ -264,13 +307,13 @@ export default function CitizenShield() {
 
               {/* Matched risk factors */}
               <div>
-                <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider block mb-1">
+                <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider block mb-2">
                   Flagged Threat Signatures
                 </span>
-                <ul className="flex flex-col gap-1.5">
+                <ul className="flex flex-col gap-2">
                   {result.matchedVectors.map((vc: string, i: number) => (
-                    <li key={i} className="text-xs font-semibold text-red-700 flex items-start gap-1.5">
-                      <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                    <li key={i} className="text-xs font-semibold text-red-700 flex items-start gap-2 bg-red-50/50 p-2.5 rounded border border-red-100">
+                      <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-600 mt-0.5" />
                       {vc}
                     </li>
                   ))}
@@ -278,7 +321,7 @@ export default function CitizenShield() {
               </div>
 
               {/* Recommended Action */}
-              <div className="bg-saffron-100 p-4 border border-saffron-200 rounded flex flex-col gap-1">
+              <div className="bg-saffron-50 p-4 border border-saffron-200 rounded flex flex-col gap-1.5">
                 <span className="text-[10px] font-bold text-saffron-600 uppercase tracking-wider">
                   Recommended Action
                 </span>
@@ -288,11 +331,11 @@ export default function CitizenShield() {
               </div>
 
               {/* Agent Logs */}
-              <div className="border-t border-govgray-200 pt-3 mt-2">
-                <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider block mb-1">
+              <div className="border-t border-govgray-200 pt-4">
+                <span className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider block mb-2">
                   Audit Trace Logs
                 </span>
-                <div className="bg-govgray-900 text-green-400 p-3 rounded font-mono text-[9px] leading-relaxed flex flex-col gap-1 overflow-x-auto max-h-40">
+                <div className="bg-govgray-900 text-green-400 p-4.5 rounded font-mono text-[9px] leading-relaxed flex flex-col gap-1 overflow-x-auto max-h-48">
                   {result.logs.map((log: string, idx: number) => (
                     <p key={idx} className="whitespace-nowrap">
                       &gt; {log}

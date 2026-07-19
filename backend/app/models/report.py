@@ -8,3 +8,4 @@ class ReportModel(BaseModel):
     category: str
     risk_level: str
     alert_id: Optional[str] = None
+    user_id: Optional[str] = None
