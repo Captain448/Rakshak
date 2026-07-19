@@ -164,12 +164,6 @@ export default function Navbar() {
                     <UserCheck className="h-4 w-4" />
                     Sign In
                   </Link>
-                  <Link
-                    href="/authority"
-                    className="px-3.5 py-2 rounded bg-govgray-100 border border-govgray-300 text-navy-900 text-sm font-bold flex items-center gap-1.5 hover:bg-govgray-200 transition-colors"
-                  >
-                    Officer Portal
-                  </Link>
                 </div>
               )}
             </>

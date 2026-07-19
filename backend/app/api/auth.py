@@ -57,3 +57,20 @@ def get_user_reports(user_id: str):
     reports = get_all_reports()
     user_reports = [r for r in reports if r.user_id == user_id]
     return user_reports
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+    email: str
+    new_password: str
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest):
+    """
+    Validates email match for username and updates the in-memory password store.
+    """
+    user = find_user_by_username(req.username)
+    if not user or user.email.lower().strip() != req.email.lower().strip():
+        raise HTTPException(status_code=404, detail="No matching username and email found.")
+    
+    user.password = req.new_password
+    return {"message": "Password reset successful."}
