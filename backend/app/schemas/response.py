@@ -8,4 +8,7 @@ class ThreatVerifyResponse(BaseModel):
     reasons: List[str]
     recommendations: List[str]
     sender_verified: bool = False
-    sender_blacklisted: bool = False
+    sender_blocked: bool = False
+    sender_status: str = "UNKNOWN"
+    sender_report_count: int = 0
+    sender_confidence_score: float = 0.0

@@ -200,12 +200,12 @@ export default function Navbar() {
                 Heatmap
               </Link>
               <Link
-                href="/authority/scammers"
+                href="/authority/intelligence"
                 className={`px-3 py-2 rounded text-sm font-semibold transition-colors ${
-                  pathname === "/authority/scammers" ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-govgray-100"
+                  pathname === "/authority/intelligence" ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-govgray-100"
                 }`}
               >
-                Scammers List
+                Reputation Directory
               </Link>
               <Link
                 href="/authority/counterfeit"

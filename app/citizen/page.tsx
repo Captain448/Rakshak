@@ -10,8 +10,11 @@ interface RiskAnalysisResult {
   matchedVectors: string[];
   logs: string[];
   recommendations: string;
-  senderVerified?: boolean;
-  senderBlacklisted?: boolean;
+  senderVerified: boolean;
+  senderBlocked: boolean;
+  senderStatus: string;
+  senderReportCount: number;
+  senderConfidenceScore: number;
 }
 
 export default function CitizenShield() {
@@ -90,7 +93,10 @@ export default function CitizenShield() {
           ? data.recommendations.join(" ")
           : "Exercise caution. Do not communicate further or share credentials.",
         senderVerified: data.sender_verified,
-        senderBlacklisted: data.sender_blacklisted
+        senderBlocked: data.sender_blocked,
+        senderStatus: data.sender_status,
+        senderReportCount: data.sender_report_count,
+        senderConfidenceScore: data.sender_confidence_score
       });
     } catch {
       setError("Threat analysis service temporarily unavailable.");
@@ -162,13 +168,13 @@ export default function CitizenShield() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-                  Sender Number / Handle / UPI (Optional)
+                  Sender Number / Handle / UPI / Domain (Optional)
                 </label>
                 <input
                   type="text"
                   value={senderHandle}
                   onChange={(e) => setSenderHandle(e.target.value)}
-                  placeholder="e.g. 'HDFCBK', '+91 99988 87776', 'verify@oksbi'"
+                  placeholder="e.g. 'HDFCBK', '+91 99988 87776', 'verify@oksbi', 'sbi-kyc-verify.in'"
                   className="bg-white border border-govgray-300 rounded p-2.5 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700 w-full"
                 />
               </div>
@@ -224,7 +230,7 @@ export default function CitizenShield() {
           </button>
         </div>
 
-        {/* Verification Output Card (Positioned below the form) */}
+        {/* Verification Output Card */}
         <div className="w-full bg-white border border-govgray-200 rounded p-5 flex flex-col gap-4 shadow-sm">
           <h3 className="font-extrabold text-sm text-navy-900 uppercase tracking-wide border-b border-govgray-200 pb-2">
             Verification Output
@@ -275,10 +281,67 @@ export default function CitizenShield() {
                   <span>🛡️ VERIFIED CONTACT: The sender matches a verified official bank/government registry. However, verify the message content is authentic.</span>
                 </div>
               )}
-              {result.senderBlacklisted && (
+              {result.senderBlocked && (
                 <div className="bg-red-50 border border-red-200 text-red-800 text-xs font-bold p-4 rounded flex items-center gap-2.5 shadow-xs">
                   <span className="h-2.5 w-2.5 bg-red-600 rounded-full animate-ping shrink-0"></span>
-                  <span>🚨 DANGER BLACKLISTED: The sender matches a known scam contact in the National Scammer Registry!</span>
+                  <span>🚨 DANGER BLOCKED: The sender matches a blocked scam contact in the National Reputation Database!</span>
+                </div>
+              )}
+
+              {/* Trust Registry Insight Panel */}
+              {senderHandle && (
+                <div className="bg-navy-50/50 border border-govgray-200 rounded p-4 flex flex-col gap-3.5 shadow-sm">
+                  <div className="flex justify-between items-center border-b border-govgray-200 pb-2 flex-wrap gap-2">
+                    <span className="text-[10px] font-extrabold text-navy-900 uppercase tracking-wider">
+                      National Trust Registry Insight
+                    </span>
+                    <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded ${
+                      result.senderStatus === "VERIFIED"
+                        ? "bg-green-100 text-green-800 border border-green-200"
+                        : result.senderStatus === "BLOCKED"
+                        ? "bg-red-100 text-red-800 border border-red-200 animate-pulse"
+                        : result.senderStatus === "HIGH_RISK"
+                        ? "bg-amber-100 text-amber-800 border border-amber-200"
+                        : result.senderStatus === "SUSPECTED"
+                        ? "bg-orange-100 text-orange-800 border border-orange-200"
+                        : "bg-govgray-100 text-govgray-800 border border-govgray-200"
+                    }`}>
+                      Status: {result.senderStatus}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-govgray-600 uppercase">Community Reports</span>
+                      <span className="font-bold text-navy-900">{result.senderReportCount} Unique Citizen Reports</span>
+                      <div className="w-full bg-govgray-200 rounded-full h-1.5 mt-1">
+                        <div
+                          className="bg-navy-900 h-1.5 rounded-full"
+                          style={{ width: `${Math.min(result.senderReportCount * 4, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-govgray-600 uppercase">Threat Confidence Score</span>
+                      <span className="font-bold text-navy-900">{result.senderConfidenceScore.toFixed(1)}% Score</span>
+                      <div className="w-full bg-govgray-200 rounded-full h-1.5 mt-1">
+                        <div
+                          className="bg-saffron-500 h-1.5 rounded-full"
+                          style={{ width: `${result.senderConfidenceScore}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10.5px] font-semibold text-navy-900 bg-white p-2.5 rounded border border-govgray-200 leading-relaxed">
+                    ℹ️ <strong>System Verdict:</strong>{" "}
+                    {result.senderStatus === "VERIFIED" && "Verified official telecom, bank, or government communication handle."}
+                    {result.senderStatus === "BLOCKED" && "Permanently blocked contact due to confirmed scam records."}
+                    {result.senderStatus === "HIGH_RISK" && "Caution: High community reports and positive machine threat confidence."}
+                    {result.senderStatus === "SUSPECTED" && "Caution: Suspected scam profile with initial community reports."}
+                    {result.senderStatus === "UNKNOWN" && "Unreported sender. No active reputation alerts in directory."}
+                  </p>
                 </div>
               )}
 

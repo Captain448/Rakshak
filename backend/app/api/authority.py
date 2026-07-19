@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from app.storage.alert_store import get_all_alerts
 from app.storage.report_store import get_all_reports
-from app.storage.scammer_store import get_all_scammers, add_scammer
+from app.storage.entity_store import get_all_entities, find_entity_by_id
+from app.services.reputation_service import update_reputation_metrics
+from app.models.entity import EntityStatus
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -124,20 +126,62 @@ def archive_alert(alert_id: str):
     
     return {"message": "Alert status set to ARCHIVED", "alert": target_alert}
 
-class ScammerAddRequest(BaseModel):
-    contact: str
+@router.get("/entities")
+def get_entities_endpoint():
+    return get_all_entities()
 
-@router.get("/scammers")
-def get_scammers():
-    """
-    Returns the list of verified blacklisted scammer contacts.
-    """
-    return get_all_scammers()
+class BlockOverrideRequest(BaseModel):
+    blocked_reason: str
 
-@router.post("/scammers")
-def add_scammer_endpoint(req: ScammerAddRequest):
-    """
-    Appends a new scammer phone number/handle to the blacklist.
-    """
-    add_scammer(req.contact)
-    return {"message": "Contact added to scammer blacklist.", "scammers": get_all_scammers()}
+@router.post("/entities/{entity_id}/verify")
+def verify_entity_officer(entity_id: str):
+    entity = find_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found.")
+    
+    now_str = datetime.now().strftime("%d-%m-%Y %I:%M %p")
+    entity.officer_verified = True
+    entity.officer_blocked = False
+    entity.blocked_reason = ""
+    entity.verified_source = "Verified by Cyber Officer"
+    entity.history.append({
+        "event": "Verified by Cyber Officer",
+        "time": now_str
+    })
+    update_reputation_metrics(entity)
+    return entity
+
+@router.post("/entities/{entity_id}/block")
+def block_entity_officer(entity_id: str, req: BlockOverrideRequest):
+    entity = find_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found.")
+    
+    now_str = datetime.now().strftime("%d-%m-%Y %I:%M %p")
+    entity.officer_blocked = True
+    entity.officer_verified = False
+    entity.blocked_reason = req.blocked_reason
+    entity.history.append({
+        "event": f"Blocked by authority: {req.blocked_reason}",
+        "time": now_str
+    })
+    update_reputation_metrics(entity)
+    return entity
+
+@router.post("/entities/{entity_id}/reset")
+def reset_entity_officer(entity_id: str):
+    entity = find_entity_by_id(entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found.")
+    
+    now_str = datetime.now().strftime("%d-%m-%Y %I:%M %p")
+    entity.officer_blocked = False
+    entity.officer_verified = False
+    entity.blocked_reason = ""
+    entity.verified_source = ""
+    entity.history.append({
+        "event": "Officer overrides removed. Reset to community logic.",
+        "time": now_str
+    })
+    update_reputation_metrics(entity)
+    return entity
