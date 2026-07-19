@@ -51,7 +51,8 @@ export default function CitizenShield() {
         ? inputText
         : `Uploaded file indicator: ${selectedFile?.name || "unnamed_file"}`;
 
-      const res = await fetch("http://127.0.0.1:8000/api/v1/citizen/verify-threat", {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const res = await fetch(`${API_URL}/api/v1/citizen/verify-threat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
