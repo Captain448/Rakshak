@@ -3,7 +3,7 @@ import uuid
 from pydantic import BaseModel
 from typing import Optional
 from app.models.user import UserModel
-from app.storage.user_store import find_user_by_username, add_user, find_user_by_id
+from app.storage.user_store import find_user_by_username, add_user, find_user_by_id, get_all_users
 from app.storage.report_store import get_all_reports
 
 router = APIRouter()
@@ -41,9 +41,14 @@ def signup(req: SignupRequest):
 @router.post("/login")
 def login(req: LoginRequest):
     """
-    Validates user credentials and initiates session.
+    Validates user credentials (username or email) and initiates session.
     """
     user = find_user_by_username(req.username)
+    if not user:
+        # Check by email matching (case-insensitive)
+        all_users = get_all_users()
+        user = next((u for u in all_users if u.email.lower().strip() == req.username.lower().strip()), None)
+
     if not user or user.password != req.password:
         raise HTTPException(status_code=401, detail="Invalid username or password.")
         

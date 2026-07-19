@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Landmark, ShieldAlert, CheckCircle, RefreshCw } from "lucide-react";
+import { Landmark, ShieldAlert, CheckCircle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function ForgotPasswordPortal() {
@@ -129,9 +129,9 @@ export default function ForgotPasswordPortal() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-[10px] font-bold text-govgray-600 uppercase hover:text-navy-900 focus:outline-none"
+                className="absolute right-3 top-2.5 text-govgray-500 hover:text-navy-900 focus:outline-none"
               >
-                {showPassword ? "Hide" : "Show"}
+                {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
               </button>
             </div>
           </div>

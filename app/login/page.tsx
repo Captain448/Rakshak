@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Landmark, ShieldAlert, Key } from "lucide-react";
+import { Landmark, ShieldAlert, Key, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function UserLoginPortal() {
@@ -80,14 +80,14 @@ export default function UserLoginPortal() {
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-govgray-600 uppercase tracking-wider">
-              Username
+              Username or Email Address
             </label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. 'citizen'"
+              placeholder="e.g. 'citizen' or 'citizen@safety.gov.in'"
               className="bg-white border border-govgray-300 rounded p-2.5 text-xs font-medium text-govgray-900 focus:outline-none focus:border-navy-700"
             />
           </div>
@@ -108,9 +108,9 @@ export default function UserLoginPortal() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-[10px] font-bold text-govgray-600 uppercase hover:text-navy-900 focus:outline-none"
+                className="absolute right-3 top-2.5 text-govgray-500 hover:text-navy-900 focus:outline-none"
               >
-                {showPassword ? "Hide" : "Show"}
+                {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
               </button>
             </div>
           </div>
